@@ -1,0 +1,48 @@
+# ============================================================
+# J.A.R.V.I.S. — .gitignore
+# Сборка и локальные данные не должны попадать в репозиторий.
+# ============================================================
+
+# --- Сборка PyInstaller ---
+build/
+dist/
+*.spec
+*.pyz
+
+# --- Персональные файлы конфигурации (могут содержать личные данные) ---
+config.json
+system_prompt.txt
+
+# --- Модели STT (Vosk) ---
+vosk-model-ru-0.42/
+vosk-model-small-ru-0.22/
+
+# --- Модели / мета-данные TTS ---
+latest_silero_models.yml
+ru_RU-ruslan-medium.onnx
+ru_RU-ruslan-medium.onnx.json
+
+# --- Данные приложения: истории диалогов, эмбеддинги, логи ---
+dialog_history.json
+history_embeddings.json
+jarvis_log.txt
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.env
+.env.*
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- IDE / ОС ---
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+Desktop.ini

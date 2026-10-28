@@ -1,0 +1,18 @@
+use_default_settings: true
+
+server:
+  secret_key: "jarvis-local-secret-change-me"
+  limiter: false
+  image_proxy: false
+  bind_address: "0.0.0.0:8080"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "ru"
+  formats:
+    - html
+    - json
+
+ui:
+  static_use_hash: true

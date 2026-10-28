@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.A.R.V.I.S.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-theme="jarvis">
+
+    <!-- ============================================================
+         ВЕРХНЯЯ ПАНЕЛЬ
+         ============================================================ -->
+    <div class="topbar">
+        <div class="topbar-left">
+            <button class="icon-btn" id="btn-settings"
+                    onclick="togglePanel('settings')" title="Настройки">⚙</button>
+        </div>
+
+        <div class="logo">
+            <span class="logo-dot"></span>
+            J.A.R.V.I.S.
+        </div>
+
+        <div class="topbar-right">
+            <button class="icon-btn" id="btn-chat"
+                    onclick="togglePanel('chat')" title="Чат">💬</button>
+            <button class="icon-btn danger" id="btn-quit"
+                    onclick="quitApp()" title="Остановить J.A.R.V.I.S.">⏻</button>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         ИНДИКАТОР СВЯЗИ
+         ============================================================ -->
+    <div class="conn-chip">
+        <span class="conn-dot" id="conn-dot"></span>
+        <span id="conn-text">Подключение...</span>
+    </div>
+
+    <!-- ============================================================
+         HUD-ЧИП: транзиентный статус ядра (status / step / success)
+         ============================================================ -->
+    <div class="hud-chip" id="hudChip" aria-live="polite"></div>
+
+    <!-- ============================================================
+         ЦЕНТР — ОРБ
+         ============================================================ -->
+    <div class="center-stage">
+        <div class="orb-wrap" id="orbWrap">
+            <div class="orb-aura"></div>
+            <canvas id="orb-canvas"></canvas>
+
+            <!-- Подпись ПОД «субстанцией» орба: ДУМАЮ / СЛУШАЮ / ГОВОРЮ.
+                 Текст выставляет setOrbState() в app.js. -->
+            <div class="orb-status" id="orbStatus" aria-live="polite"></div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         ТЕКСТ ПОВЕРХ ОРБА (снизу, низкая прозрачность)
+         ============================================================ -->
+    <div class="overlay-text" id="overlayText">
+        <div class="role">J.A.R.V.I.S.</div>
+        <div class="body">Системы инициализированы, сэр. Слушаю вас.</div>
+    </div>
+
+    <!-- ============================================================
+         ЛЕВАЯ ПАНЕЛЬ: НАСТРОЙКИ
+         ============================================================ -->
+    <div class="side-panel panel-settings" id="panel-settings">
+        <div class="panel-header">
+            <div class="panel-title">⚙ Настройки</div>
+            <button class="icon-btn" onclick="togglePanel('settings')">✕</button>
+        </div>
+        <div class="panel-body">
+
+            <!-- ============ АКТИВАЦИЯ ============ -->
+            <div class="set-section">
+                <div class="set-title">Активация</div>
+                <label class="set-label">Слово активации</label>
+                <input type="text" id="set-wake-word" class="set-input"
+                       placeholder="джарвис">
+                <label class="set-check">
+                    <input type="checkbox" id="set-require-wake">
+                    <span>Требовать слово активации</span>
+                </label>
+                <label class="set-label">Порог VAD (100–2000)</label>
+                <input type="number" id="set-vad-threshold" class="set-input"
+                       min="100" max="2000" step="50">
+            </div>
+
+            <!-- ============ РЕЧЬ ============ -->
+            <div class="set-section">
+                <div class="set-title">Речь</div>
+                <label class="set-label">Движок TTS (перезапуск)</label>
+                <select id="set-tts-engine" class="set-select">
+                    <option value="silero">Silero v5</option>
+                    <option value="piper">Piper</option>
+                </select>
+                <label class="set-label">Голос Silero</label>
+                <input type="text" id="set-silero-speaker" class="set-input"
+                       placeholder="eugene">
+                <label class="set-label">Модель Piper (перезапуск)</label>
+                <input type="text" id="set-piper-model-path" class="set-input"
+                       placeholder="ru_RU-ruslan-medium.onnx">
+                <label class="set-label">Движок STT (перезапуск)</label>
+                <select id="set-stt-engine" class="set-select">
+                    <option value="kairos-asr">Kairos ASR</option>
+                    <option value="vosk-large">Vosk Large</option>
+                    <option value="vosk-small">Vosk Small</option>
+                </select>
+            </div>
+
+            <!-- ============ МОДЕЛИ LM STUDIO ============ -->
+            <div class="set-section">
+                <div class="set-title">Модели LM Studio</div>
+                <label class="set-label">LLM модель (загрузится сразу)</label>
+                <div class="row-inline">
+                    <select id="set-llm-model" class="set-select"></select>
+                    <button class="btn-small" onclick="reloadLLMModels()">↻</button>
+                </div>
+                <div class="status-msg" id="llm-model-status"></div>
+
+                <label class="set-label">Эмбеддер (перезапуск)</label>
+                <div class="row-inline">
+                    <select id="set-embedding-model" class="set-select"></select>
+                    <button class="btn-small" onclick="reloadEmbeddingModels()">↻</button>
+                </div>
+                <input type="text" id="set-embedding-model-manual" class="set-input"
+                       placeholder="или ID вручную" style="margin-top:6px">
+
+                <label class="set-label">Инструкция эмбеддера</label>
+                <input type="text" id="set-embedding-instruction" class="set-input"
+                       placeholder="(пусто — авто)">
+
+                <label class="set-label">Top-K семантического поиска</label>
+                <select id="set-semantic-top-k" class="set-select">
+                    <option value="0">Отключён</option>
+                    <option value="3">3</option>
+                    <option value="5">5</option>
+                    <option value="8">8</option>
+                    <option value="10">10</option>
+                    <option value="15">15</option>
+                </select>
+            </div>
+
+            <!-- ============ СИСТЕМНЫЙ ПРОМПТ ============ -->
+            <div class="set-section">
+                <div class="set-title">Системный промпт</div>
+                <label class="set-label">Редактор (применится сразу)</label>
+                <textarea id="set-system-prompt" class="set-textarea" rows="10"
+                          spellcheck="false"
+                          placeholder="Ты — J.A.R.V.I.S. ..."></textarea>
+                <div class="actions-row" style="margin-top:10px">
+                    <button class="btn-small" onclick="reloadSystemPrompt()">↻ Обновить</button>
+                    <button class="btn-small primary" onclick="saveSystemPrompt()">Сохранить промпт</button>
+                </div>
+                <div class="status-msg" id="prompt-status"></div>
+            </div>
+
+            <!-- ============ ПОИСК ============ -->
+            <div class="set-section">
+                <div class="set-title">Поиск</div>
+                <label class="set-label">Поисковик</label>
+                <select id="set-search-engine" class="set-select">
+                    <option value="searxng-first">SearXNG → DuckDuckGo</option>
+                    <option value="ddg-first">DuckDuckGo → SearXNG</option>
+                    <option value="ddg-only">Только DuckDuckGo</option>
+                </select>
+                <label class="set-label">Макс. результатов</label>
+                <input type="number" id="set-web-search-max" class="set-input"
+                       min="1" max="20">
+                <label class="set-label">Макс. символов при чтении</label>
+                <input type="number" id="set-web-fetch-max" class="set-input"
+                       min="500" max="50000" step="500">
+                <label class="set-label">Макс. итераций инструментов</label>
+                <input type="number" id="set-max-tool-iterations" class="set-input"
+                       min="1" max="10">
+                <label class="set-check">
+                    <input type="checkbox" id="set-searxng-enabled">
+                    <span>Использовать SearXNG (Docker)</span>
+                </label>
+                <label class="set-check">
+                    <input type="checkbox" id="set-searxng-auto-start">
+                    <span>Авто-запуск контейнера</span>
+                </label>
+                <label class="set-check">
+                    <input type="checkbox" id="set-searxng-auto-stop">
+                    <span>Авто-стоп при выходе</span>
+                </label>
+                <label class="set-label">Что останавливать при выходе</label>
+                <select id="set-searxng-stop-mode" class="set-select">
+                    <option value="container">Только контейнер SearXNG</option>
+                    <option value="docker">Весь Docker Desktop</option>
+                </select>
+            </div>
+
+            <!-- ============ РЕСУРСЫ МОДЕЛИ ============ -->
+            <div class="set-section">
+                <div class="set-title">Ресурсы модели (GPU / контекст / CPU)</div>
+
+                <label class="set-check">
+                    <input type="checkbox" id="set-llm-limits-enabled">
+                    <span>Включить ограничения нагрузки</span>
+                </label>
+
+                <label class="set-label">Доля слоёв на GPU (0.0–1.0; 0=CPU only)</label>
+                <input type="number" id="set-llm-gpu-ratio" class="set-input"
+                       min="0" max="1" step="0.05">
+
+                <label class="set-label">Длина контекста (0=по умолчанию)</label>
+                <input type="number" id="set-llm-context-length" class="set-input"
+                       min="0" max="131072" step="512">
+
+                <label class="set-label">Приоритет процессов LLM</label>
+                <select id="set-llm-priority" class="set-select">
+                    <option value="normal">Обычный</option>
+                    <option value="below_normal">Ниже обычного (рекомендуется)</option>
+                    <option value="low">Низкий (Idle)</option>
+                </select>
+
+                <div class="status-msg" style="font-size:10px">
+                    ⓘ GPU и контекст применятся при следующей загрузке модели
+                    (перезапуск Jarvis или смена LLM). Приоритет — сразу.
+                </div>
+            </div>
+
+            <!-- ============ LM STUDIO ============ -->
+            <div class="set-section">
+                <div class="set-title">LM Studio</div>
+                <label class="set-label">URL сервера (перезапуск)</label>
+                <input type="text" id="set-lm-url" class="set-input"
+                       placeholder="http://localhost:1234/v1">
+                <label class="set-check">
+                    <input type="checkbox" id="set-lm-auto-start">
+                    <span>Запускать сервер при старте</span>
+                </label>
+                <label class="set-label">Путь к lms.exe</label>
+                <input type="text" id="set-lm-cli-path" class="set-input"
+                       placeholder="C:\Users\...\.lmstudio\bin\lms.exe">
+                <label class="set-check">
+                    <input type="checkbox" id="set-lm-auto-stop">
+                    <span>Останавливать сервер при выходе</span>
+                </label>
+                <label class="set-label">Стоп при простое (сек, 0 — отключено)</label>
+                <input type="number" id="set-lm-idle-stop" class="set-input"
+                       min="0" max="3600">
+                <label class="set-label">TTL модели в VRAM (сек)</label>
+                <input type="number" id="set-lm-ttl" class="set-input"
+                       min="10" max="7200">
+            </div>
+
+            <!-- ============ ПАМЯТЬ ============ -->
+            <div class="set-section">
+                <div class="set-title">Память</div>
+                <label class="set-label">Файл истории</label>
+                <input type="text" id="set-history-file" class="set-input"
+                       placeholder="dialog_history.json">
+                <label class="set-label">Файл эмбеддингов</label>
+                <input type="text" id="set-embeddings-file" class="set-input"
+                       placeholder="history_embeddings.json">
+                <div class="actions-row" style="margin-top:12px">
+                    <button class="btn-small" onclick="clearHistory('dialogs')">Очистить диалоги</button>
+                    <button class="btn-small" onclick="clearHistory('all')">Полный сброс</button>
+                    <button class="btn-small" onclick="clearHistory('rebuild')">Пересчитать</button>
+                </div>
+                <div class="status-msg" id="memory-status"></div>
+            </div>
+
+            <!-- ============ ЛОГИ ============ -->
+            <div class="set-section">
+                <div class="set-title">Логи</div>
+                <label class="set-label">Файл логов</label>
+                <input type="text" id="set-log-file" class="set-input"
+                       placeholder="jarvis_log.txt">
+                <label class="set-check">
+                    <input type="checkbox" id="set-verbose-logging">
+                    <span>Подробное логирование</span>
+                </label>
+            </div>
+
+            <!-- ============ ДЕЙСТВИЯ ============ -->
+            <div class="actions-row" style="margin-top:20px">
+                <button class="btn-small" onclick="closeSettings()">Отмена</button>
+                <button class="btn-small primary" onclick="saveSettings()">Сохранить</button>
+            </div>
+            <div class="status-msg" id="settings-status"></div>
+
+        </div>
+    </div>
+
+    <!-- ============================================================
+         ПРАВАЯ ПАНЕЛЬ: ЧАТ
+         ============================================================ -->
+    <div class="side-panel panel-chat" id="panel-chat">
+        <div class="panel-header">
+            <div class="panel-title">💬 Диалог</div>
+            <button class="icon-btn" onclick="togglePanel('chat')">✕</button>
+        </div>
+        <div class="panel-body" id="chat-view">
+            <div class="message system">
+                <div>Загрузка интерфейса...</div>
+            </div>
+        </div>
+        <div class="chat-input-row">
+            <input type="text" id="user-input"
+                   placeholder="Введите сообщение..." autocomplete="off">
+            <button class="send-btn" id="send-btn">→</button>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         МОДАЛКА ПОДТВЕРЖДЕНИЯ ОПАСНЫХ КОМАНД
+         ============================================================ -->
+    <div class="modal-backdrop" id="confirmModal">
+        <div class="modal">
+            <h3>⚠ ТРЕБУЕТСЯ ПОДТВЕРЖДЕНИЕ</h3>
+            <p>Опасная команда. Подтвердите выполнение.</p>
+            <div class="modal-buttons">
+                <button class="btn" onclick="answerConfirmation(false)">ОТМЕНА</button>
+                <button class="btn btn-confirm" onclick="answerConfirmation(true)">ВЫПОЛНИТЬ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Внешние библиотеки -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+
+    <!-- Логика -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
